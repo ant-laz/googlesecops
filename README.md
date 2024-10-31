@@ -1,8 +1,6 @@
 ## Pipeline overview
 
-source = Pub/Sub
-
-sink = Chronicle
+Solace >> Dataflow >> GCS >> Google SecOps (Chronicle)
 
 ## Sink - Google SecOps
 
