@@ -54,12 +54,12 @@ To run passing command line arguments.
 
 ```shell
 ./gradlew run --args="\
---sempHostname=${} \
---jcsmpHostname=${} \
---username=${} \
---password=${} \
---vpnName=${} \
---queueName=${}"
+--sempHostname=${MY_SEMP_HOSTNAME} \
+--jcsmpHostname=${MY_JCSMP_HOSTNAME} \
+--username=${MY_SOLACE_USERNAME} \
+--password=${MY_SOLACE_PASSWORD} \
+--vpnName=${MY_VPN_NAME} \
+--queueName=${MY_SOLACE_QUEUE_NAME}"
 ```
 
 ## Deploying to Dataflow
@@ -79,9 +79,9 @@ https://cloud.google.com/dataflow/docs/resources/locations
 export GCP_PROJECT_ID=$(gcloud config list core/project --format="value(core.project)")
 export GCP_PROJECT_NUM=$(gcloud projects describe $GCP_PROJECT_ID --format="value(projectNumber)")
 export CURRENT_USER=$(gcloud config list account --format "value(core.account)")
-export GCP_BUCKET_REGION="US"
-export GCP_DATAFLOW_REGION="us-east4"
-export PROJECT_NAME="pubsubchronicle"
+export GCP_BUCKET_REGION="${MY_GCP_BUCKET_REGION}"
+export GCP_DATAFLOW_REGION="${MY_GCP_DATAFLOW_REGION}"
+export PROJECT_NAME="${MY_PROJECT_NAME}"
 export GCS_BUCKET=gs://${GCP_PROJECT_ID}-${PROJECT_NAME}
 export GCS_BUCKET_TMP=${GCS_BUCKET}/tmp/
 export GCS_BUCKET_INPUT=${GCS_BUCKET}/input
@@ -113,11 +113,16 @@ gcloud storage buckets add-iam-policy-binding ${GCS_BUCKET} \
 
 ```shell
 gradle run --args="\
---pubSubSubscription=${SUBSCRIPTION_ID} \
 --runner='DataflowRunner' \
 --project=${GCP_PROJECT_ID} \
 --region=${GCP_DATAFLOW_REGION} \
 --experiments=enable_data_sampling \
---tempLocation=${GCS_BUCKET_TMP}"
+--tempLocation=${GCS_BUCKET_TMP} \
+--sempHostname=${MY_SEMP_HOSTNAME} \
+--jcsmpHostname=${MY_JCSMP_HOSTNAME} \
+--username=${MY_SOLACE_USERNAME} \
+--password=${MY_SOLACE_PASSWORD} \
+--vpnName=${MY_VPN_NAME} \
+--queueName=${MY_SOLACE_QUEUE_NAME}"
 ```
 

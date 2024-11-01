@@ -84,20 +84,14 @@ public class App {
   }
 
   // ---------   DoFn ------------------------------------------------------------------------------
-  // static class TransformPubSubToChonicle extends DoFn<PubsubMessage, String> {
-  //
-  //   @ProcessElement
-  //   public void processElement(@Element PubsubMessage msg, OutputReceiver<String> out){
-  //     // "@Element" is used by BeamSDK to pass each member of input PCollection to param "msg"
-  //     // "OutputReceiver" is from BeamSDK and is what we populate with DoFns output, per element
-  //     out.output(msg.toString());
-  //
-  //     // Log
-  //     //LOG.info("String representation of message = " + msg.toString());
-  //     LOG.info("Payload of message = " + new String(msg.getPayload(), StandardCharsets.UTF_8 ));
-  //
-  //   }
-  // }
+  static class InspectSolace extends DoFn<Solace.Record, Solace.Record> {
+
+    @ProcessElement
+    public void processElement(@Element Solace.Record msg, OutputReceiver<Solace.Record> out){
+      out.output(msg);
+      LOG.info("Solace payload = " + StandardCharsets.UTF_8.decode(msg.getPayload()).toString());
+    }
+  }
 
   // ---------   Pipeline---------------------------------------------------------------------------
   public static void main(String[] args) {
@@ -130,18 +124,22 @@ public class App {
                     .vpnName(myOptions.getVpnName())
                     .build()));
 
-    // Inspect messages Solace.Record objects
-    PCollection<Solace.Record> messages = events.apply(
-        "PassThrough",
-        MapElements.via(
-            new SimpleFunction<Solace.Record, Solace.Record>() {
-              @Override
-              public Solace.Record apply(Solace.Record s) {
-                String str = StandardCharsets.UTF_8.decode(s.getPayload()).toString();
-                System.out.println(str);
-                return s;
-              }
-            }));
+    // Inspect Solace.Record objects
+    PCollection<Solace.Record> messages = events.apply(ParDo.of(new InspectSolace()));
+
+    //TODO select a JSON library in Java
+
+    //TODO convert Solace.Record in to JSON
+
+    //TODO convert JSON to string
+
+    //TODO write JSON string to GCS
+
+    //TODO setup feed in SecOps, confirm no data there
+
+    //TODO kick off import job in SecOps
+
+    //TODO confirm data lands in SecOps
 
     //execute the pipeline
     pipeline.run().waitUntilFinish();
