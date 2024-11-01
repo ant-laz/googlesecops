@@ -19,6 +19,8 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 
 import org.apache.beam.sdk.Pipeline;
+import org.apache.beam.sdk.io.Compression;
+import org.apache.beam.sdk.io.TextIO;
 import org.apache.beam.sdk.io.solace.SolaceIO;
 import org.apache.beam.sdk.io.solace.broker.BasicAuthJcsmpSessionServiceFactory;
 import org.apache.beam.sdk.io.solace.broker.BasicAuthSempClientFactory;
@@ -78,6 +80,11 @@ public class App {
     @Default.String("my-queue")
     String getQueueName();
     void setQueueName(String value);
+
+    @Description("Cloud Storage URI")
+    @Default.String("gs://bucket/directory")
+    String getStoragePath();
+    void setStoragePath(String value);
   }
 
   // ---------   DoFn ------------------------------------------------------------------------------
@@ -136,13 +143,15 @@ public class App {
     // Process the payload of Solace messages
     PCollection<String> moveReviews = windowed.apply(ParDo.of(new ProcessSolace()));
 
-    //TODO write JSON string to GCS
-
-    //TODO setup feed in SecOps, confirm no data there
-
-    //TODO kick off import job in SecOps
-
-    //TODO confirm data lands in SecOps
+    // Write JSON strings to Google Cloud Storage
+    moveReviews.apply(
+        TextIO
+            .write()
+            .withWindowedWrites()
+            .to(myOptions.getStoragePath())
+            .withSuffix(".json")
+            .withCompression(Compression.GZIP)
+    );
 
     //execute the pipeline
     pipeline.run().waitUntilFinish();

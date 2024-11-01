@@ -85,7 +85,7 @@ export PROJECT_NAME="${MY_PROJECT_NAME}"
 export GCS_BUCKET=gs://${GCP_PROJECT_ID}-${PROJECT_NAME}
 export GCS_BUCKET_TMP=${GCS_BUCKET}/tmp/
 export GCS_BUCKET_INPUT=${GCS_BUCKET}/input
-export GCS_BUCKET_OUTPUT=${GCS_BUCKET}/output
+export GCS_BUCKET_OUTPUT=${GCS_BUCKET}/chronicle
 export GCS_BUCKET_PUBSUB_INPUT=${GCS_BUCKET}/pubsubinput
 export PUB_SUB_TOPIC=projects/${GCP_PROJECT_ID}/topics/${PROJECT_NAME}
 export PUB_SUB_SUBSCRIPTION=${PROJECT_NAME}-sub
@@ -123,6 +123,7 @@ gradle run --args="\
 --username=${MY_SOLACE_USERNAME} \
 --password=${MY_SOLACE_PASSWORD} \
 --vpnName=${MY_VPN_NAME} \
---queueName=${MY_SOLACE_QUEUE_NAME}"
+--queueName=${MY_SOLACE_QUEUE_NAME} \
+--storagePath=${GCS_BUCKET_OUTPUT}"
 ```
 
