@@ -30,7 +30,10 @@ import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.ParDo;
+import org.apache.beam.sdk.transforms.windowing.FixedWindows;
+import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.PCollection;
+import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -126,9 +129,12 @@ public class App {
                     .vpnName(myOptions.getVpnName())
                     .build()));
 
-    PCollection<String> moveReviews = events.apply(ParDo.of(new ProcessSolace()));
+    // Assign solace messages into fixed windows
+    PCollection<Solace.Record> windowed = events.apply(Window.<Solace.Record>into(FixedWindows.of(
+        Duration.standardSeconds(60))));
 
-    //TODO Window Review PCollections into fixed sliding windows...
+    // Process the payload of Solace messages
+    PCollection<String> moveReviews = windowed.apply(ParDo.of(new ProcessSolace()));
 
     //TODO write JSON string to GCS
 
