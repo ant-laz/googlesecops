@@ -31,7 +31,7 @@ Example message from Solace
         "write_bq": false,
         "write_gcs": true
 },
-    "review": "positive",
+    "movieReview": "positive",
     "url": "https://www.rottentomatoes.com/m/raiders_of_the_lost_ark"
 }
 ```

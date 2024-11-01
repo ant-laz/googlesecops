@@ -14,15 +14,11 @@ package com.tonyzaro;
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-import com.google.cloud.pubsublite.proto.PubSubMessage;
+import com.google.gson.Gson;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 
 import org.apache.beam.sdk.Pipeline;
-import org.apache.beam.sdk.io.solace.data.Solace.Record;
-import org.apache.beam.sdk.transforms.MapElements;
-import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO;
-import org.apache.beam.sdk.io.gcp.pubsub.PubsubMessage;
 import org.apache.beam.sdk.io.solace.SolaceIO;
 import org.apache.beam.sdk.io.solace.broker.BasicAuthJcsmpSessionServiceFactory;
 import org.apache.beam.sdk.io.solace.broker.BasicAuthSempClientFactory;
@@ -32,10 +28,8 @@ import org.apache.beam.sdk.options.Default;
 import org.apache.beam.sdk.options.Description;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.options.PipelineOptions;
-import org.apache.beam.sdk.transforms.Create;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.ParDo;
-import org.apache.beam.sdk.transforms.SimpleFunction;
 import org.apache.beam.sdk.values.PCollection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -84,12 +78,20 @@ public class App {
   }
 
   // ---------   DoFn ------------------------------------------------------------------------------
-  static class InspectSolace extends DoFn<Solace.Record, Solace.Record> {
+  static class ProcessSolace extends DoFn<Solace.Record, String> {
 
     @ProcessElement
-    public void processElement(@Element Solace.Record msg, OutputReceiver<Solace.Record> out){
-      out.output(msg);
-      LOG.info("Solace payload = " + StandardCharsets.UTF_8.decode(msg.getPayload()).toString());
+    public void processElement(@Element Solace.Record msg, OutputReceiver<String> out){
+      ByteBuffer solacePayload =  msg.getPayload();
+      // de-code ByteBuffer into a String
+      String solacePayloadDecoded = StandardCharsets.UTF_8.decode(solacePayload).toString();
+      // de-serialize JSON string into a MoveReview object
+      Gson gson = new Gson();
+      MovieReview movieReview = gson.fromJson(solacePayloadDecoded, MovieReview.class);
+      // serialize MovieReview object into a JSON string
+      String reviewSerialized = gson.toJson(movieReview);
+      out.output(reviewSerialized);
+      LOG.info("de-coded & de-serialized ... re-serialized move review = " + reviewSerialized);
     }
   }
 
@@ -124,14 +126,9 @@ public class App {
                     .vpnName(myOptions.getVpnName())
                     .build()));
 
-    // Inspect Solace.Record objects
-    PCollection<Solace.Record> messages = events.apply(ParDo.of(new InspectSolace()));
+    PCollection<String> moveReviews = events.apply(ParDo.of(new ProcessSolace()));
 
-    //TODO select a JSON library in Java
-
-    //TODO convert Solace.Record in to JSON
-
-    //TODO convert JSON to string
+    //TODO Window Review PCollections into fixed sliding windows...
 
     //TODO write JSON string to GCS
 
