@@ -21,6 +21,8 @@ import com.google.protobuf.Timestamp;
 
 import com.tonyzaro.model.ChronicleLogData;
 import com.tonyzaro.model.LogsImportLog;
+import com.tonyzaro.model.LogsImportRequest;
+import com.tonyzaro.model.LogsImportSource;
 import com.tonyzaro.model.SolacePayload;
 import com.tonyzaro.model.SolacePayloadOrBuilder;
 import java.nio.ByteBuffer;
@@ -194,6 +196,29 @@ public class App {
     }
   }
 
+  // ---------   DoFn ------------------------------------------------------------------------------
+  static class FormChronicleRequests extends DoFn<KV<Integer, Iterable<LogsImportLog>>, LogsImportRequest> {
+
+    @ProcessElement
+    public void processElement(@Element KV<Integer, Iterable<LogsImportLog>> msg, OutputReceiver<LogsImportRequest> out) {
+      LogsImportRequest request  = LogsImportRequest
+          .newBuilder()
+          .setInlineSource(
+              LogsImportSource
+                  .newBuilder()
+                  .addAllLogs(msg.getValue())
+                  .setForwarder("asdf")
+                  .build()
+          )
+          .build();
+      
+      out.output(request);
+
+      //debug
+      //LOG.info(request.toString());
+    }
+  }
+
 
   // ---------   Pipeline---------------------------------------------------------------------------
   public static void main(String[] args) {
@@ -248,9 +273,8 @@ public class App {
             GroupIntoBatches.<Integer,LogsImportLog>ofSize(100)
             .withMaxBufferingDuration(Duration.millis(1000)));
 
-    // TODO:: Take many LogsImportLog and create 1 LogsImportRequest
-    // PCollection<LogsImportSource> logs = events.apply(ParDo.of(new ConvertSolaceToLog)
-    // PCollection<LogsImportRequest> requests = logsgrouped.apply(ParDo.of(new FormAPIRequests)
+    // Take many LogsImportLog and create 1 LogsImportRequest
+    PCollection<LogsImportRequest> chronicleRequests = logsGrouped.apply(ParDo.of(new FormChronicleRequests()));
 
     // TODO:: Make the Request to the Chronicle API
     //PCollection<Success_Tag, Failure_Tag> result = requests.apply(ParDo.MakeAPIRequests)
