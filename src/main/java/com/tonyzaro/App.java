@@ -17,11 +17,16 @@ package com.tonyzaro;
 import com.google.gson.Gson;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.util.JsonFormat;
+import com.google.protobuf.Timestamp;
+
+import com.tonyzaro.model.ChronicleLogData;
+import com.tonyzaro.model.LogsImportLog;
 import com.tonyzaro.model.SolacePayload;
 import com.tonyzaro.model.SolacePayloadOrBuilder;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 
+import java.util.Calendar;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.io.Compression;
 import org.apache.beam.sdk.io.TextIO;
@@ -97,7 +102,7 @@ public class App {
     @ProcessElement
     public void processElement(@Element Solace.Record msg, OutputReceiver<SolacePayload> out)
         throws InvalidProtocolBufferException {
-      ByteBuffer solacePayload =  msg.getPayload();
+      ByteBuffer solacePayload = msg.getPayload();
       String solacePayloadDecoded = StandardCharsets.UTF_8.decode(solacePayload).toString();
       SolacePayload.Builder payloadBuilder = SolacePayload.newBuilder();
       JsonFormat.parser().merge(solacePayloadDecoded, payloadBuilder);
@@ -105,9 +110,71 @@ public class App {
       out.output(payload);
 
       //debug
-      LOG.info(payload.toString());
+      //LOG.info(payload.toString());
     }
   }
+
+  // ---------   DoFn ------------------------------------------------------------------------------
+    static class MapSolaceToChronicle extends DoFn<SolacePayload, ChronicleLogData> {
+
+    @ProcessElement
+    public void processElement(@Element SolacePayload msg, OutputReceiver<ChronicleLogData> out) {
+
+      ChronicleLogData log = ChronicleLogData
+          .newBuilder()
+          .setMessage(msg.getMessage())
+          .setReview(msg.getReview())
+          .setUrl(msg.getUrl())
+          .setTimestampIsoFormat(msg.getCriticalFields().getTimestampIsoFormat())
+          .setUuaa(msg.getMetadata().getUuaa())
+          .setDatachannel(msg.getMetadata().getDatachannel())
+          .setWriteBq(msg.getMetadata().getWriteBq())
+          .setWriteGcs(msg.getMetadata().getWriteGcs())
+          .build();
+      out.output(log);
+
+      //debug
+      //LOG.info(log.toString());
+    }
+  }
+
+  // ---------   DoFn ------------------------------------------------------------------------------
+  static class FormatLogDataForImport extends DoFn<ChronicleLogData, LogsImportLog> {
+
+    @ProcessElement
+    public void processElement(@Element ChronicleLogData msg, OutputReceiver<LogsImportLog> out) {
+      // For demo purposes, we simply fix the events to all have the same timestamp
+      // https://protobuf.dev/reference/protobuf/google.protobuf/#timestamp
+      // timestamp1 used for log_entry_time, the timestamp of the log entry
+      // TODO :: Make demo more realistic timestamp1 = current time & timestamp2 = timestamp1+1sec
+      Calendar c1 = Calendar.getInstance();
+      c1.set(2024, 11, 1, 23, 30, 30);
+      com.google.protobuf.Timestamp timestamp1 = com.google.protobuf.Timestamp
+          .newBuilder()
+          .setSeconds(c1.getTimeInMillis() / 1000)
+          .setNanos((int) ((c1.getTimeInMillis() % 1000) * 1000000))
+          .build();
+      // timestamp2 used for collection_time, time after the above when log was collected
+      Calendar c2 = Calendar.getInstance();
+      c2.set(2024, 11, 1, 23, 31, 30);
+      com.google.protobuf.Timestamp timestamp2 = com.google.protobuf.Timestamp
+          .newBuilder()
+          .setSeconds(c2.getTimeInMillis() / 1000)
+          .setNanos((int) ((c2.getTimeInMillis() % 1000) * 1000000))
+          .build();
+
+      LogsImportLog log = LogsImportLog
+          .newBuilder()
+          .setData(msg.toByteString())
+          .setLogEntryTime(timestamp1)
+          .setCollectionTime(timestamp2)
+          .build();
+
+      //debug
+      LOG.info(log.toString());
+    }
+  }
+
 
   // ---------   Pipeline---------------------------------------------------------------------------
   public static void main(String[] args) {
@@ -145,15 +212,18 @@ public class App {
         Duration.standardSeconds(60))));
 
     // Decode Solace payload into JSON string & then de-serialize into Protobuf message
-    PCollection<SolacePayload> moveReviews = windowed.apply(ParDo.of(new ProcessSolace()));
+    PCollection<SolacePayload> solacePayload = windowed.apply(ParDo.of(new ProcessSolace()));
 
-    // TODO:: Transform SolacePayload into format for Chronicle API
-    // PCollection<ChronicleLogData> logdata = movieReviews.apply()
+    // Transform SolacePayload into format for Chronicle API
+    PCollection<ChronicleLogData> chronicleLogData = solacePayload.apply(ParDo.of(new MapSolaceToChronicle()));
 
-    // TODO:: Transform into log import log for chronicle API
+    // Transform into log import log for chronicle API. Cloud be combined with above
+    PCollection<LogsImportLog> chronicleLog = chronicleLogData.apply(ParDo.of(new FormatLogDataForImport()));
+
+    // TODO:: Assign random batch ids to messages, for later grouping
     // PCollection<LogsImportLog> logmsg = logdata.apply()
 
-    // TODO:: Group together LogsImportLog to create send multiple logs per Chronicle API request
+    // TODO:: Group together logs (using batch ids) to create send multiple logs per API request
     // PCollection<GroupedLogs> logsgrouped= logs.apply(ParDo.GroupIntoBatches)
 
     // TODO:: Take many LogsImportLog and create 1 LogsImportRequest

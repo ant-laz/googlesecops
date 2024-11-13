@@ -28,13 +28,14 @@ import "google/protobuf/timestamp.proto";
 
 // To be serialized & added into the LogsImportLog.data field below
 message ChronicleLogData {
-  string id = 1;
-  string metric1 = 2;
-  string metric2 = 3;
-  string metric3 = 4;
-  string dim1 = 5;
-  string dim2 = 6;
-  string dim3 = 7;
+  string message = 1;
+  string review  = 2;
+  string url = 3;
+  string timestamp_iso_format = 4;
+  string uuaa = 5;
+  string datachannel = 6;
+  bool write_bq = 7;
+  bool write_gcs = 8;
 }
 
 // based on
