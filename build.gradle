@@ -12,11 +12,17 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
+// Based on
+// https://www.jetbrains.com/help/idea/getting-started-with-gradle.html
 plugins {
+    // the application plugin ...
     id 'application'
+    // the protobuf plugin ...
+    id "com.google.protobuf" version "0.9.4"
 }
 
 repositories {
+    // configure where gradle will find dependencies
     mavenCentral()
 }
 
@@ -30,7 +36,7 @@ test {
 }
 
 dependencies {
-    // App dependencies.
+    // dependencies scoped to src/main/java ----------------------------------
     implementation "org.apache.beam:beam-sdks-java-core:2.59.0"
     implementation "org.apache.beam:beam-runners-direct-java:2.59.0"
     implementation "org.apache.beam:beam-sdks-java-io-solace:2.60.0"
@@ -38,8 +44,14 @@ dependencies {
     implementation "org.apache.beam:beam-sdks-java-io-google-cloud-platform:2.59.0"
     implementation "com.google.code.gson:gson:2.11.0"
     implementation "org.slf4j:slf4j-jdk14:1.7.32"
+    // to help with application default credentials
+    implementation 'com.google.auth:google-auth-library-oauth2-http:1.19.0'
+    // dependency on the protobuf Java runtime.
+    implementation 'com.google.protobuf:protobuf-java:4.28.3'
+    // helper class to convert from proto to json
+    implementation 'com.google.protobuf:protobuf-java-util:4.28.3'
 
-    // Tests dependencies.
+    // dependencies scoped to src/test ---------------------------------------
     testImplementation "junit:junit:4.13.2"
     testImplementation 'org.hamcrest:hamcrest:2.2'
 }
@@ -48,14 +60,35 @@ dependencies {
 jar {
     archiveBaseName = 'pipeline'
     destinationDirectory = file('build')
-    manifest {
-        attributes 'Main-Class': 'com.example.App'
-    }
     exclude 'META-INF/*.SF'
     exclude 'META-INF/*.DSA'
     exclude 'META-INF/*.RSA'
-    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+    manifest {
+        attributes 'Main-Class': 'com.tonyzaro.App'
+    }
     from {
         configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+}
+
+protobuf {
+    // protoc complies protocol buffers into java code
+    // This config tells gradle where to find protoc
+    // Select pre-compiled protoc from maven central
+    protoc {
+        // Download from repositories
+        artifact = 'com.google.protobuf:protoc:4.28.3'
+    }
+    generateProtoTasks {
+        // all() returns the collection of all protoc tasks
+        all().configureEach {task ->
+            task.builtins {
+                java {
+                    //if needed can change directory where protos are outputted
+                    //generatedFilesBaseDir = "${projectDir}/src"
+                }
+            }
+        }
     }
 }

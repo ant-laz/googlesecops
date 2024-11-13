@@ -15,6 +15,10 @@ package com.tonyzaro;
 //  limitations under the License.
 
 import com.google.gson.Gson;
+import com.google.protobuf.InvalidProtocolBufferException;
+import com.google.protobuf.util.JsonFormat;
+import com.tonyzaro.model.SolacePayload;
+import com.tonyzaro.model.SolacePayloadOrBuilder;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 
@@ -88,20 +92,20 @@ public class App {
   }
 
   // ---------   DoFn ------------------------------------------------------------------------------
-  static class ProcessSolace extends DoFn<Solace.Record, String> {
+  static class ProcessSolace extends DoFn<Solace.Record, SolacePayload> {
 
     @ProcessElement
-    public void processElement(@Element Solace.Record msg, OutputReceiver<String> out){
+    public void processElement(@Element Solace.Record msg, OutputReceiver<SolacePayload> out)
+        throws InvalidProtocolBufferException {
       ByteBuffer solacePayload =  msg.getPayload();
-      // de-code ByteBuffer into a String
       String solacePayloadDecoded = StandardCharsets.UTF_8.decode(solacePayload).toString();
-      // de-serialize JSON string into a MoveReview object
-      Gson gson = new Gson();
-      MovieReview movieReview = gson.fromJson(solacePayloadDecoded, MovieReview.class);
-      // serialize MovieReview object into a JSON string
-      String reviewSerialized = gson.toJson(movieReview);
-      out.output(reviewSerialized);
-      LOG.info("de-coded & de-serialized ... re-serialized move review = " + reviewSerialized);
+      SolacePayload.Builder payloadBuilder = SolacePayload.newBuilder();
+      JsonFormat.parser().merge(solacePayloadDecoded, payloadBuilder);
+      SolacePayload payload = payloadBuilder.build();
+      out.output(payload);
+
+      //debug
+      LOG.info(payload.toString());
     }
   }
 
@@ -140,18 +144,35 @@ public class App {
     PCollection<Solace.Record> windowed = events.apply(Window.<Solace.Record>into(FixedWindows.of(
         Duration.standardSeconds(60))));
 
-    // Process the payload of Solace messages
-    PCollection<String> moveReviews = windowed.apply(ParDo.of(new ProcessSolace()));
+    // Decode Solace payload into JSON string & then de-serialize into Protobuf message
+    PCollection<SolacePayload> moveReviews = windowed.apply(ParDo.of(new ProcessSolace()));
 
+    // TODO:: Transform SolacePayload into format for Chronicle API
+    // PCollection<ChronicleLogData> logdata = movieReviews.apply()
+
+    // TODO:: Transform into log import log for chronicle API
+    // PCollection<LogsImportLog> logmsg = logdata.apply()
+
+    // TODO:: Group together LogsImportLog to create send multiple logs per Chronicle API request
+    // PCollection<GroupedLogs> logsgrouped= logs.apply(ParDo.GroupIntoBatches)
+
+    // TODO:: Take many LogsImportLog and create 1 LogsImportRequest
+    // PCollection<LogsImportSource> logs = events.apply(ParDo.of(new ConvertSolaceToLog)
+    // PCollection<LogsImportRequest> requests = logsgrouped.apply(ParDo.of(new FormAPIRequests)
+
+    // TODO:: Make the Request to the Chronicle API
+    //PCollection<Success_Tag, Failure_Tag> result = requests.apply(ParDo.MakeAPIRequests)
+
+    // TODO:: Remove output to Google Cloud Storage
     // Write JSON strings to Google Cloud Storage
-    moveReviews.apply(
-        TextIO
-            .write()
-            .withWindowedWrites()
-            .to(myOptions.getStoragePath())
-            .withSuffix(".json")
-            .withCompression(Compression.GZIP)
-    );
+    // moveReviews.apply(
+    //     TextIO
+    //         .write()
+    //         .withWindowedWrites()
+    //         .to(myOptions.getStoragePath())
+    //         .withSuffix(".json")
+    //         .withCompression(Compression.GZIP)
+    // );
 
     //execute the pipeline
     pipeline.run().waitUntilFinish();
