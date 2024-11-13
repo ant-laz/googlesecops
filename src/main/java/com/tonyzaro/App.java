@@ -27,6 +27,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 
 import java.util.Calendar;
+import java.util.Random;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.io.Compression;
 import org.apache.beam.sdk.io.TextIO;
@@ -40,9 +41,11 @@ import org.apache.beam.sdk.options.Description;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.transforms.DoFn;
+import org.apache.beam.sdk.transforms.GroupIntoBatches;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.windowing.FixedWindows;
 import org.apache.beam.sdk.transforms.windowing.Window;
+import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
 import org.joda.time.Duration;
 import org.slf4j.Logger;
@@ -170,8 +173,24 @@ public class App {
           .setCollectionTime(timestamp2)
           .build();
 
+      out.output(log);
+
       //debug
-      LOG.info(log.toString());
+      //LOG.info(log.toString());
+    }
+  }
+
+  // ---------   DoFn ------------------------------------------------------------------------------
+  static class AllocateBatchID extends DoFn<LogsImportLog, KV<Integer,LogsImportLog>> {
+
+    @ProcessElement
+    public void processElement(@Element LogsImportLog msg, OutputReceiver<KV<Integer,LogsImportLog>> out) {
+      Random r = new Random();
+      KV<Integer, LogsImportLog> logWithBatchId = KV.of(r.nextInt(100), msg);
+      out.output(logWithBatchId);
+
+      //debug
+      // LOG.info(logWithBatchId.toString());
     }
   }
 
@@ -220,11 +239,14 @@ public class App {
     // Transform into log import log for chronicle API. Cloud be combined with above
     PCollection<LogsImportLog> chronicleLog = chronicleLogData.apply(ParDo.of(new FormatLogDataForImport()));
 
-    // TODO:: Assign random batch ids to messages, for later grouping
-    // PCollection<LogsImportLog> logmsg = logdata.apply()
+    // Assign random batch ids to messages, for later grouping
+    PCollection<KV<Integer, LogsImportLog>> logWithBatchID = chronicleLog.apply(ParDo.of(new AllocateBatchID()));
 
-    // TODO:: Group together logs (using batch ids) to create send multiple logs per API request
-    // PCollection<GroupedLogs> logsgrouped= logs.apply(ParDo.GroupIntoBatches)
+    // Group together logs (using batch ids) to create send multiple logs per API request
+    PCollection<KV<Integer, Iterable<LogsImportLog>>> logsGrouped = logWithBatchID
+        .apply(
+            GroupIntoBatches.<Integer,LogsImportLog>ofSize(100)
+            .withMaxBufferingDuration(Duration.millis(1000)));
 
     // TODO:: Take many LogsImportLog and create 1 LogsImportRequest
     // PCollection<LogsImportSource> logs = events.apply(ParDo.of(new ConvertSolaceToLog)
