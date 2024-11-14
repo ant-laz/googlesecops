@@ -59,7 +59,11 @@ To run passing command line arguments.
 --username=${MY_SOLACE_USERNAME} \
 --password=${MY_SOLACE_PASSWORD} \
 --vpnName=${MY_VPN_NAME} \
---queueName=${MY_SOLACE_QUEUE_NAME}"
+--queueName=${MY_SOLACE_QUEUE_NAME} \
+--secOpsProject=${GSECOPS_BYOP_GCP_PROJECT} \
+--secOpsLocation=${GSECOPS_LOCATION} \
+--secOpsCustomerID=${GSECOPS_CUSTOMER_ID} \
+--secOpsForwarderID=${GSECOPS_FORWARDER_ID}"
 ```
 
 ## Deploying to Dataflow

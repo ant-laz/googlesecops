@@ -99,6 +99,26 @@ public class App {
     @Default.String("gs://bucket/directory")
     String getStoragePath();
     void setStoragePath(String value);
+
+    @Description("GSECOPS_BYOP_GCP_PROJECT")
+    @Default.String("some-project")
+    String getSecOpsProject();
+    void setSecOpsProject(String value);
+
+    @Description("GSECOPS_LOCATION")
+    @Default.String("eu")
+    String getSecOpsLocation();
+    void setSecOpsLocation(String value);
+
+    @Description("GSECOPS_CUSTOMER_ID")
+    @Default.String("asdf")
+    String getSecOpsCustomerID();
+    void setSecOpsCustomerID(String value);
+
+    @Description("GSECOPS_FORWARDER_ID")
+    @Default.String("1234")
+    String getSecOpsForwarderID();
+    void setSecOpsForwarderID(String value);
   }
 
   // ---------   DoFn ------------------------------------------------------------------------------
@@ -199,23 +219,43 @@ public class App {
   // ---------   DoFn ------------------------------------------------------------------------------
   static class FormChronicleRequests extends DoFn<KV<Integer, Iterable<LogsImportLog>>, LogsImportRequest> {
 
+    private final String secOpsProject;
+    private final String secOpsLocation;
+    private final String secOpsCustomerID;
+    private final String secOpsForwarderID;
+
+
+    public FormChronicleRequests(String secOpsProject, String secOpsLocation, String secOpsCustomerID, String secOpsForwarderID){
+      this.secOpsProject = secOpsProject;
+      this.secOpsLocation = secOpsLocation;
+      this.secOpsCustomerID = secOpsCustomerID;
+      this.secOpsForwarderID = secOpsForwarderID;
+    }
+
+
     @ProcessElement
     public void processElement(@Element KV<Integer, Iterable<LogsImportLog>> msg, OutputReceiver<LogsImportRequest> out) {
+
+      String forwarderID = "projects/"+this.secOpsProject
+          +"/locations/"+this.secOpsLocation
+          +"/instances/"+this.secOpsCustomerID
+          +"/forwarders/"+this.secOpsForwarderID;
+
       LogsImportRequest request  = LogsImportRequest
           .newBuilder()
           .setInlineSource(
               LogsImportSource
                   .newBuilder()
                   .addAllLogs(msg.getValue())
-                  .setForwarder("asdf")
+                  .setForwarder(forwarderID)
                   .build()
           )
           .build();
-      
+
       out.output(request);
 
       //debug
-      //LOG.info(request.toString());
+      LOG.info(request.toString());
     }
   }
 
@@ -274,21 +314,14 @@ public class App {
             .withMaxBufferingDuration(Duration.millis(1000)));
 
     // Take many LogsImportLog and create 1 LogsImportRequest
-    PCollection<LogsImportRequest> chronicleRequests = logsGrouped.apply(ParDo.of(new FormChronicleRequests()));
+    PCollection<LogsImportRequest> chronicleRequests = logsGrouped.apply(ParDo.of(new FormChronicleRequests(
+        myOptions.getSecOpsProject(),
+        myOptions.getSecOpsLocation(),
+        myOptions.getSecOpsCustomerID(),
+        myOptions.getSecOpsForwarderID())));
 
     // TODO:: Make the Request to the Chronicle API
     //PCollection<Success_Tag, Failure_Tag> result = requests.apply(ParDo.MakeAPIRequests)
-
-    // TODO:: Remove output to Google Cloud Storage
-    // Write JSON strings to Google Cloud Storage
-    // moveReviews.apply(
-    //     TextIO
-    //         .write()
-    //         .withWindowedWrites()
-    //         .to(myOptions.getStoragePath())
-    //         .withSuffix(".json")
-    //         .withCompression(Compression.GZIP)
-    // );
 
     //execute the pipeline
     pipeline.run().waitUntilFinish();
