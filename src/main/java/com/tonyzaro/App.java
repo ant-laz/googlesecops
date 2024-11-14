@@ -14,6 +14,8 @@ package com.tonyzaro;
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
+import com.google.auth.oauth2.AccessToken;
+import com.google.auth.oauth2.GoogleCredentials;
 import com.google.gson.Gson;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.util.JsonFormat;
@@ -25,6 +27,14 @@ import com.tonyzaro.model.LogsImportRequest;
 import com.tonyzaro.model.LogsImportSource;
 import com.tonyzaro.model.SolacePayload;
 import com.tonyzaro.model.SolacePayloadOrBuilder;
+import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpRequest.BodyPublishers;
+import java.net.http.HttpResponse;
+import java.net.http.HttpResponse.BodyHandlers;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 
@@ -49,6 +59,7 @@ import org.apache.beam.sdk.transforms.windowing.FixedWindows;
 import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
+
 import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -119,6 +130,11 @@ public class App {
     @Default.String("1234")
     String getSecOpsForwarderID();
     void setSecOpsForwarderID(String value);
+
+    @Description("GSECOPS_LOG_TYPE")
+    @Default.String("1234")
+    String getSecOpsLogType();
+    void setSecOpsLogType(String value);
   }
 
   // ---------   DoFn ------------------------------------------------------------------------------
@@ -255,13 +271,64 @@ public class App {
       out.output(request);
 
       //debug
-      LOG.info(request.toString());
+      //LOG.info(request.toString());
+    }
+  }
+
+  // ---------   DoFn ------------------------------------------------------------------------------
+  static class ChronicleAPIRequest extends DoFn<LogsImportRequest, String> {
+
+    private final String secOpsProject;
+    private final String secOpsLocation;
+    private final String secOpsCustomerID;
+    private final String secOpsLogType;
+
+    private final String tokenValue;
+
+    public ChronicleAPIRequest(String secOpsProject, String secOpsLocation, String secOpsCustomerID, String secOpsLogType, String tokenValue){
+      this.secOpsProject = secOpsProject;
+      this.secOpsLocation = secOpsLocation;
+      this.secOpsCustomerID = secOpsCustomerID;
+      this.secOpsLogType = secOpsLogType;
+      this.tokenValue = tokenValue;
+    }
+
+
+    @ProcessElement
+    public void processElement(@Element LogsImportRequest msg, OutputReceiver<String> out)
+        throws IOException, InterruptedException, URISyntaxException {
+
+      URI secOpsEndopint = new URI(
+          "https://" + this.secOpsLocation
+              +"-chronicle.googleapis.com/v1alpha/projects/" + this.secOpsProject
+              +"/locations/"+ this.secOpsLocation
+              +"/instances/"+ this.secOpsCustomerID
+              +"/logTypes/"+ this.secOpsLogType
+              +"/logs:import");
+      HttpRequest postRequest = HttpRequest.newBuilder()
+          .uri(secOpsEndopint)
+          .header("Authorization", "Bearer " + tokenValue)
+          .header("Content-Type", "application/json")
+          //https://protobuf.dev/reference/java/api-docs/com/google/protobuf/util/JsonFormat.html
+          .POST(BodyPublishers.ofString(JsonFormat.printer().print(msg)))
+          .build();
+
+      HttpClient httpClient = HttpClient.newHttpClient();
+
+      HttpResponse<String> postResponse = httpClient.send(postRequest, BodyHandlers.ofString());
+
+      out.output(String.valueOf(postResponse.statusCode()));
+      //debug
+      LOG.info("Sent the following JSON to Chronicle API");
+      LOG.info(JsonFormat.printer().print(msg));
+      LOG.info("Received HTTP status code = " + postResponse.statusCode());
+
     }
   }
 
 
   // ---------   Pipeline---------------------------------------------------------------------------
-  public static void main(String[] args) {
+  public static void main(String[] args) throws IOException {
     // Initialize the pipeline options
     PipelineOptionsFactory.register(MyAppOptions.class);
     MyAppOptions myOptions = PipelineOptionsFactory
@@ -271,6 +338,12 @@ public class App {
 
     // create the main pipeline
     Pipeline pipeline = Pipeline.create(myOptions);
+
+    // get authentication token for API requests
+    GoogleCredentials googleCredentials;
+    googleCredentials = GoogleCredentials.getApplicationDefault();
+    AccessToken token = googleCredentials.refreshAccessToken();
+    String tokenValue = token.getTokenValue();
 
 
     // Read messages from Solace
@@ -292,6 +365,7 @@ public class App {
                     .build()));
 
     // Assign solace messages into fixed windows
+    // TODO:: Revist this, Is this 60 second windowing making the later group into batches fail?
     PCollection<Solace.Record> windowed = events.apply(Window.<Solace.Record>into(FixedWindows.of(
         Duration.standardSeconds(60))));
 
@@ -305,13 +379,16 @@ public class App {
     PCollection<LogsImportLog> chronicleLog = chronicleLogData.apply(ParDo.of(new FormatLogDataForImport()));
 
     // Assign random batch ids to messages, for later grouping
+    //TODO:: Revist this. Maybe the choice of "random ID" results in batches that are too small ?
     PCollection<KV<Integer, LogsImportLog>> logWithBatchID = chronicleLog.apply(ParDo.of(new AllocateBatchID()));
 
     // Group together logs (using batch ids) to create send multiple logs per API request
+    // TODO:: Getting The HTTP 429 status code, "Too Many Requests",
+    // TODO:: Sending too many API requests in a given amount of time. How to send fewer requests?
     PCollection<KV<Integer, Iterable<LogsImportLog>>> logsGrouped = logWithBatchID
         .apply(
             GroupIntoBatches.<Integer,LogsImportLog>ofSize(100)
-            .withMaxBufferingDuration(Duration.millis(1000)));
+            .withMaxBufferingDuration(Duration.millis(10000)));
 
     // Take many LogsImportLog and create 1 LogsImportRequest
     PCollection<LogsImportRequest> chronicleRequests = logsGrouped.apply(ParDo.of(new FormChronicleRequests(
@@ -320,8 +397,13 @@ public class App {
         myOptions.getSecOpsCustomerID(),
         myOptions.getSecOpsForwarderID())));
 
-    // TODO:: Make the Request to the Chronicle API
-    //PCollection<Success_Tag, Failure_Tag> result = requests.apply(ParDo.MakeAPIRequests)
+    PCollection<String> result = chronicleRequests.apply(ParDo.of(new ChronicleAPIRequest(
+        myOptions.getSecOpsProject(),
+        myOptions.getSecOpsLocation(),
+        myOptions.getSecOpsCustomerID(),
+        myOptions.getSecOpsLogType(),
+        tokenValue
+    )));
 
     //execute the pipeline
     pipeline.run().waitUntilFinish();

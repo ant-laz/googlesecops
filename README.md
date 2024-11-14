@@ -63,7 +63,8 @@ To run passing command line arguments.
 --secOpsProject=${GSECOPS_BYOP_GCP_PROJECT} \
 --secOpsLocation=${GSECOPS_LOCATION} \
 --secOpsCustomerID=${GSECOPS_CUSTOMER_ID} \
---secOpsForwarderID=${GSECOPS_FORWARDER_ID}"
+--secOpsForwarderID=${GSECOPS_FORWARDER_ID} \
+--secOpsLogType=${GSECOPS_LOG_TYPE}"
 ```
 
 ## Deploying to Dataflow
