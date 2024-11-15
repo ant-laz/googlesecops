@@ -180,6 +180,21 @@ gcloud projects add-iam-policy-binding ${GCP_PROJECT_ID} \
 --role="roles/storage.objectAdmin"
 ```
 
+For the worker service account, the Dataflow service agent principal has the 'Cloud Dataflow Service Agent' role.
+
+```shell
+gcloud iam service-accounts add-iam-policy-binding \
+    ${SERVICE_ACCT_FULL} \
+    --member="user:${CURRENT_USER}" \
+    --role="roles/iam.serviceAccountTokenCreator"
+```
+
+
+The Dataflow service agent cannot access the worker service account. 
+ To grant the role, see https://cloud.google.com/iam/docs/manage-access-service-accounts#view-access. 
+On the Service Accounts page, select the worker service account, open the Permissions tab, and select 'Include Google-provided role grants' to verify roles. 
+To learn more about service accounts, see https://cloud.google.com/dataflow/docs/concepts/security-and-permissions#permissions
+
 #### 4. create a Google Cloud Storage bucket for temporary pipepline files
 
 create a bucket

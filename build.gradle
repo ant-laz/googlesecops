@@ -36,24 +36,58 @@ test {
 }
 
 dependencies {
-    // dependencies scoped to src/main/java ----------------------------------
+    // Note 1. There are different ways to get dependencies to work on Dataflow
+    // Note 2. protobuf-java-util >> helper utils to convert from proto to json
+    // Note 3. protobuf-java >> protobuf java runtime, to use generated code
+    // Note 4. google-auth-library-oauth2-http >> app defult credentials
+
+    // Option 1 ::Bill of materials --------------------------------------------
+    // https://beam.apache.org/documentation/sdks/java-dependencies/
+//    implementation(platform("org.apache.beam:beam-sdks-java-google-cloud-platform-bom:2.59.0"))
+//    implementation "org.apache.beam:beam-sdks-java-core"
+//    implementation "org.apache.beam:beam-runners-direct-java"
+//    implementation "org.apache.beam:beam-sdks-java-io-solace"
+//    implementation "org.apache.beam:beam-runners-google-cloud-dataflow-java"
+//    implementation "org.apache.beam:beam-sdks-java-io-google-cloud-platform"
+//    implementation "com.google.code.gson:gson"
+//    implementation 'com.google.auth:google-auth-library-oauth2-http'
+//    implementation 'com.google.protobuf:protobuf-java'
+//    implementation 'com.google.protobuf:protobuf-java-util'
+//    implementation "org.slf4j:slf4j-jdk14:1.7.32"
+
+    // Option 2 :: Older version of dependencies--------------------------------
+    // This works because specified versions match Apaache Beam BOM
     implementation "org.apache.beam:beam-sdks-java-core:2.59.0"
     implementation "org.apache.beam:beam-runners-direct-java:2.59.0"
-    implementation "org.apache.beam:beam-sdks-java-io-solace:2.60.0"
+    implementation "org.apache.beam:beam-sdks-java-io-solace:2.59.0"
     implementation "org.apache.beam:beam-runners-google-cloud-dataflow-java:2.59.0"
     implementation "org.apache.beam:beam-sdks-java-io-google-cloud-platform:2.59.0"
     implementation "com.google.code.gson:gson:2.11.0"
-    implementation "org.slf4j:slf4j-jdk14:1.7.32"
-    // to help with application default credentials
     implementation 'com.google.auth:google-auth-library-oauth2-http:1.19.0'
-    // dependency on the protobuf Java runtime.
-    implementation 'com.google.protobuf:protobuf-java:4.28.3'
-    // helper class to convert from proto to json
-    implementation 'com.google.protobuf:protobuf-java-util:4.28.3'
+    implementation 'com.google.protobuf:protobuf-java:3.25.4'
+    implementation 'com.google.protobuf:protobuf-java-util:3.25.4'
+    implementation "org.slf4j:slf4j-jdk14:1.7.32"
 
-    // dependencies scoped to src/test ---------------------------------------
-    testImplementation "junit:junit:4.13.2"
-    testImplementation 'org.hamcrest:hamcrest:2.2'
+
+    // Option 3 :: New version of dependencies----------------------------------
+    // This fails because specified versions do not match Apache Beam BOM
+//    implementation "org.apache.beam:beam-sdks-java-core:2.59.0"
+//    implementation "org.apache.beam:beam-runners-direct-java:2.59.0"
+//    implementation "org.apache.beam:beam-sdks-java-io-solace:2.59.0"
+//    implementation "org.apache.beam:beam-runners-google-cloud-dataflow-java:2.59.0"
+//    implementation "org.apache.beam:beam-sdks-java-io-google-cloud-platform:2.59.0"
+//    implementation "com.google.code.gson:gson:2.11.0"
+//    implementation 'com.google.auth:google-auth-library-oauth2-http:1.19.0'
+//    implementation 'com.google.protobuf:protobuf-java:4.28.3'
+//    implementation 'com.google.protobuf:protobuf-java-util:4.28.3'
+//    implementation "org.slf4j:slf4j-jdk14:1.7.32"
+
+    // TEST specific -----------------------------------------------------------
+//    testImplementation "junit:junit:4.13.2"
+//    testImplementation "junit:junit"
+//    testImplementation 'org.hamcrest:hamcrest:2.2'
+//    testImplementation 'org.hamcrest:hamcrest'
+
 }
 
 // Package a self-contained jar file.
@@ -78,7 +112,8 @@ protobuf {
     // Select pre-compiled protoc from maven central
     protoc {
         // Download from repositories
-        artifact = 'com.google.protobuf:protoc:4.28.3'
+        // Needs to match protobuf java libraries above
+        artifact = 'com.google.protobuf:protoc:3.25.4'
     }
     generateProtoTasks {
         // all() returns the collection of all protoc tasks
