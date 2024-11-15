@@ -105,11 +105,11 @@ export SOLACE_USERNAME=${MY_SOLACE_USERNAME}
 export SOLACE_PASSWORD=${MY_SOLACE_PASSWORD}
 export VPN_NAME=${MY_VPN_NAME}
 export SOLACE_QUEUE_NAME=${MY_SOLACE_QUEUE_NAME}
-export MY_GSECOPS_BYOP_GCP_PROJECT=${MY_GSECOPS_BYOP_GCP_PROJECT}
-export MY_GSECOPS_LOCATION=${MY_GSECOPS_LOCATION}
-export MY_GSECOPS_CUSTOMER_ID=${MY_GSECOPS_CUSTOMER_ID}
-export MY_GSECOPS_FORWARDER_ID=${MY_GSECOPS_FORWARDER_ID}
-export MY_GSECOPS_LOG_TYPE=${MY_GSECOPS_LOG_TYPE}
+export GSECOPS_BYOP_GCP_PROJECT=${MY_GSECOPS_BYOP_GCP_PROJECT}
+export GSECOPS_LOCATION=${MY_GSECOPS_LOCATION}
+export GSECOPS_CUSTOMER_ID=${MY_GSECOPS_CUSTOMER_ID}
+export GSECOPS_FORWARDER_ID=${MY_GSECOPS_FORWARDER_ID}
+export GSECOPS_LOG_TYPE=${MY_GSECOPS_LOG_TYPE}
 ```
 
 #### 2. enable APIs at the project level
@@ -179,21 +179,6 @@ gcloud projects add-iam-policy-binding ${GCP_PROJECT_ID} \
 --member="serviceAccount:${SERVICE_ACCT_FULL}" \
 --role="roles/storage.objectAdmin"
 ```
-
-For the worker service account, the Dataflow service agent principal has the 'Cloud Dataflow Service Agent' role.
-
-```shell
-gcloud iam service-accounts add-iam-policy-binding \
-    ${SERVICE_ACCT_FULL} \
-    --member="user:${CURRENT_USER}" \
-    --role="roles/iam.serviceAccountTokenCreator"
-```
-
-
-The Dataflow service agent cannot access the worker service account. 
- To grant the role, see https://cloud.google.com/iam/docs/manage-access-service-accounts#view-access. 
-On the Service Accounts page, select the worker service account, open the Permissions tab, and select 'Include Google-provided role grants' to verify roles. 
-To learn more about service accounts, see https://cloud.google.com/dataflow/docs/concepts/security-and-permissions#permissions
 
 #### 4. create a Google Cloud Storage bucket for temporary pipepline files
 
