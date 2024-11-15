@@ -62,11 +62,11 @@ Run the pipeline using the Beam runner.
 --password=${MY_SOLACE_PASSWORD} \
 --vpnName=${MY_VPN_NAME} \
 --queueName=${MY_SOLACE_QUEUE_NAME} \
---secOpsProject=${GSECOPS_BYOP_GCP_PROJECT} \
---secOpsLocation=${GSECOPS_LOCATION} \
---secOpsCustomerID=${GSECOPS_CUSTOMER_ID} \
---secOpsForwarderID=${GSECOPS_FORWARDER_ID} \
---secOpsLogType=${GSECOPS_LOG_TYPE}"
+--secOpsProject=${MY_GSECOPS_BYOP_GCP_PROJECT} \
+--secOpsLocation=${MY_GSECOPS_LOCATION} \
+--secOpsCustomerID=${MY_GSECOPS_CUSTOMER_ID} \
+--secOpsForwarderID=${MY_GSECOPS_FORWARDER_ID} \
+--secOpsLogType=${MY_GSECOPS_LOG_TYPE}"
 ```
 
 ## Deploying to Dataflow
@@ -88,14 +88,28 @@ See here for valid dataflow locations
 https://cloud.google.com/dataflow/docs/resources/locations
 
 ```sh
-export GCP_PROJECT_ID=$(gcloud config list core/project --format="value(core.project)")
-export GCP_PROJECT_NUM=$(gcloud projects describe $GCP_PROJECT_ID --format="value(projectNumber)")
-export CURRENT_USER=$(gcloud config list account --format "value(core.account)")
+export GCP_PROJECT_ID=${MY_GCP_PROJECT_ID}
+export GCP_PROJECT_NUM=${MY_GCP_PROJECT_NUM}
+export CURRENT_USER=${MY_CURRENT_USER}
 export GCP_BUCKET_REGION="${MY_GCP_BUCKET_REGION}"
 export GCP_DATAFLOW_REGION="${MY_GCP_DATAFLOW_REGION}"
 export PIPELINE_NAME="${MY_PIPELINE_NAME}"
 export GCS_BUCKET=gs://${GCP_PROJECT_ID}-${MY_PIPELINE_NAME}
 export GCS_BUCKET_TMP=${GCS_BUCKET}/tmp/
+export SERVICE_ACCT=${MY_SERVICE_ACCT}
+export SERVICE_ACCT_FULL="${SERVICE_ACCT}@${GCP_PROJECT_ID}.iam.gserviceaccount.com"
+export IAM_CUSTOM_ROLE_ID=${MY_IAM_CUSTOM_ROLE_ID}
+export SEMP_HOSTNAME=${MY_SEMP_HOSTNAME}
+export JCSMP_HOSTNAME=${MY_JCSMP_HOSTNAME}
+export SOLACE_USERNAME=${MY_SOLACE_USERNAME}
+export SOLACE_PASSWORD=${MY_SOLACE_PASSWORD}
+export VPN_NAME=${MY_VPN_NAME}
+export SOLACE_QUEUE_NAME=${MY_SOLACE_QUEUE_NAME}
+export MY_GSECOPS_BYOP_GCP_PROJECT=${MY_GSECOPS_BYOP_GCP_PROJECT}
+export MY_GSECOPS_LOCATION=${MY_GSECOPS_LOCATION}
+export MY_GSECOPS_CUSTOMER_ID=${MY_GSECOPS_CUSTOMER_ID}
+export MY_GSECOPS_FORWARDER_ID=${MY_GSECOPS_FORWARDER_ID}
+export MY_GSECOPS_LOG_TYPE=${MY_GSECOPS_LOG_TYPE}
 ```
 
 #### 2. enable APIs at the project level
@@ -153,20 +167,20 @@ And "Ensure that your user-managed service account has read and write access
 to the staging and temporary locations specified in the Dataflow job." [ref](https://cloud.google.com/dataflow/docs/concepts/security-and-permissions#user-managed)
 
 ```shell
-gcloud projects add-iam-policy-binding ${PROJECT_ID} \ 
-  --member="serviceAccount:${SERVICE_ACCT_FULL}" \
-  --role=roles/dataflow.admin
+gcloud projects add-iam-policy-binding ${GCP_PROJECT_ID} \
+--member="serviceAccount:${SERVICE_ACCT_FULL}" \
+--role="roles/dataflow.admin"
 
-gcloud projects add-iam-policy-binding ${PROJECT_ID} \ 
-  --member="serviceAccount:${SERVICE_ACCT_FULL}" \
-  --role=roles/dataflow.worker\
+gcloud projects add-iam-policy-binding ${GCP_PROJECT_ID} \
+--member="serviceAccount:${SERVICE_ACCT_FULL}" \
+--role="roles/dataflow.worker"
   
-gcloud projects add-iam-policy-binding ${PROJECT_ID} \ 
-  --member="serviceAccount:${SERVICE_ACCT_FULL}" \
-  --role=roles/storage.objectAdmin
+gcloud projects add-iam-policy-binding ${GCP_PROJECT_ID} \
+--member="serviceAccount:${SERVICE_ACCT_FULL}" \
+--role="roles/storage.objectAdmin"
 ```
 
-#### 4. create a service account to run the pipeline
+#### 4. create a Google Cloud Storage bucket for temporary pipepline files
 
 create a bucket
 ```shell
@@ -177,13 +191,6 @@ gcloud storage buckets create ${GCS_BUCKET} \
   --default-storage-class STANDARD
 ```
 
-set up bucket permissions
-```shell
-gcloud storage buckets add-iam-policy-binding ${GCS_BUCKET} \
---member=allUsers \
---role=roles/storage.objectViewer
-```
-
 ### launch the pipeline on Dataflow
 
 ```shell
@@ -192,14 +199,18 @@ gradle run --args="\
 --serviceAccount=${SERVICE_ACCT_FULL} \
 --project=${GCP_PROJECT_ID} \
 --region=${GCP_DATAFLOW_REGION} \
---experiments=enable_data_sampling \
 --tempLocation=${GCS_BUCKET_TMP} \
---sempHostname=${MY_SEMP_HOSTNAME} \
---jcsmpHostname=${MY_JCSMP_HOSTNAME} \
---username=${MY_SOLACE_USERNAME} \
---password=${MY_SOLACE_PASSWORD} \
---vpnName=${MY_VPN_NAME} \
---queueName=${MY_SOLACE_QUEUE_NAME} \
---storagePath=${GCS_BUCKET_OUTPUT}"
+--sempHostname=${SEMP_HOSTNAME} \
+--jcsmpHostname=${JCSMP_HOSTNAME} \
+--username=${SOLACE_USERNAME} \
+--password=${SOLACE_PASSWORD} \
+--vpnName=${VPN_NAME} \
+--queueName=${SOLACE_QUEUE_NAME} \
+--secOpsProject=${GSECOPS_BYOP_GCP_PROJECT} \
+--secOpsLocation=${GSECOPS_LOCATION} \
+--secOpsCustomerID=${GSECOPS_CUSTOMER_ID} \
+--secOpsForwarderID=${GSECOPS_FORWARDER_ID} \
+--secOpsLogType=${GSECOPS_LOG_TYPE}"
 ```
+
 

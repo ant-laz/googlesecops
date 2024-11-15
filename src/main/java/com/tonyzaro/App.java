@@ -76,62 +76,57 @@ public class App {
   // For custom command line options
   public interface MyAppOptions extends PipelineOptions {
 
-    @Description("SEMP Hostname")
+    @Description("SEMP Hostname --sempHostname=")
     @Default.String("http://localhost")
     String getSempHostname();
     void setSempHostname(String value);
 
-    @Description("JCSMP Hostname")
+    @Description("JCSMP Hostname --jcsmpHostname=")
     @Default.String("http://localhost")
     String getJcsmpHostname();
     void setJcsmpHostname(String value);
 
-    @Description("Username")
+    @Description("Username --username=")
     @Default.String("username")
     String getUsername();
     void setUsername(String value);
 
-    @Description("Password")
+    @Description("Password --password=")
     @Default.String("*****")
     String getPassword();
     void setPassword(String value);
 
-    @Description("VPN Name")
+    @Description("VPN Name --vpnName=")
     @Default.String("default")
     String getVpnName();
     void setVpnName(String value);
 
-    @Description("Queue name")
+    @Description("Queue name --queueName=")
     @Default.String("my-queue")
     String getQueueName();
     void setQueueName(String value);
 
-    @Description("Cloud Storage URI")
-    @Default.String("gs://bucket/directory")
-    String getStoragePath();
-    void setStoragePath(String value);
-
-    @Description("GSECOPS_BYOP_GCP_PROJECT")
+    @Description("GSECOPS_BYOP_GCP_PROJECT --secOpsProject=")
     @Default.String("some-project")
     String getSecOpsProject();
     void setSecOpsProject(String value);
 
-    @Description("GSECOPS_LOCATION")
+    @Description("GSECOPS_LOCATION --secOpsLocation=")
     @Default.String("eu")
     String getSecOpsLocation();
     void setSecOpsLocation(String value);
 
-    @Description("GSECOPS_CUSTOMER_ID")
+    @Description("GSECOPS_CUSTOMER_ID --secOpsCustomerID=")
     @Default.String("asdf")
     String getSecOpsCustomerID();
     void setSecOpsCustomerID(String value);
 
-    @Description("GSECOPS_FORWARDER_ID")
+    @Description("GSECOPS_FORWARDER_ID --secOpsForwarderID=")
     @Default.String("1234")
     String getSecOpsForwarderID();
     void setSecOpsForwarderID(String value);
 
-    @Description("GSECOPS_LOG_TYPE")
+    @Description("GSECOPS_LOG_TYPE --secOpsLogType=")
     @Default.String("1234")
     String getSecOpsLogType();
     void setSecOpsLogType(String value);
