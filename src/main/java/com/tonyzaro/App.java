@@ -219,11 +219,11 @@ public class App {
     @ProcessElement
     public void processElement(@Element LogsImportLog msg, OutputReceiver<KV<Integer,LogsImportLog>> out) {
       Random r = new Random();
-      KV<Integer, LogsImportLog> logWithBatchId = KV.of(r.nextInt(100), msg);
+      KV<Integer, LogsImportLog> logWithBatchId = KV.of(r.nextInt(10), msg);
       out.output(logWithBatchId);
 
       //debug
-      // LOG.info(logWithBatchId.toString());
+      //LOG.info(logWithBatchId.toString());
     }
   }
 
@@ -266,7 +266,7 @@ public class App {
       out.output(request);
 
       //debug
-      //LOG.info(request.toString());
+      // LOG.info(request.toString());
     }
   }
 
@@ -359,13 +359,8 @@ public class App {
                     .vpnName(myOptions.getVpnName())
                     .build()));
 
-    // Assign solace messages into fixed windows
-    // TODO:: Revist this, Is this 60 second windowing making the later group into batches fail?
-    PCollection<Solace.Record> windowed = events.apply(Window.<Solace.Record>into(FixedWindows.of(
-        Duration.standardSeconds(60))));
-
     // Decode Solace payload into JSON string & then de-serialize into Protobuf message
-    PCollection<SolacePayload> solacePayload = windowed.apply(ParDo.of(new ProcessSolace()));
+    PCollection<SolacePayload> solacePayload = events.apply(ParDo.of(new ProcessSolace()));
 
     // Transform SolacePayload into format for Chronicle API
     PCollection<ChronicleLogData> chronicleLogData = solacePayload.apply(ParDo.of(new MapSolaceToChronicle()));
@@ -374,16 +369,13 @@ public class App {
     PCollection<LogsImportLog> chronicleLog = chronicleLogData.apply(ParDo.of(new FormatLogDataForImport()));
 
     // Assign random batch ids to messages, for later grouping
-    //TODO:: Revist this. Maybe the choice of "random ID" results in batches that are too small ?
     PCollection<KV<Integer, LogsImportLog>> logWithBatchID = chronicleLog.apply(ParDo.of(new AllocateBatchID()));
 
     // Group together logs (using batch ids) to create send multiple logs per API request
-    // TODO:: Getting The HTTP 429 status code, "Too Many Requests",
-    // TODO:: Sending too many API requests in a given amount of time. How to send fewer requests?
     PCollection<KV<Integer, Iterable<LogsImportLog>>> logsGrouped = logWithBatchID
         .apply(
             GroupIntoBatches.<Integer,LogsImportLog>ofSize(100)
-            .withMaxBufferingDuration(Duration.millis(10000)));
+            .withMaxBufferingDuration(Duration.millis(1000)));
 
     // Take many LogsImportLog and create 1 LogsImportRequest
     PCollection<LogsImportRequest> chronicleRequests = logsGrouped.apply(ParDo.of(new FormChronicleRequests(

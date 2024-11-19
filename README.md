@@ -44,45 +44,7 @@ curl -s "https://get.sdkman.io" | bash
 sdk install java 17.0.5-tem
 ```
 
-## Local development with Beam runner
-
-Create local authentication credentials for your user account.
-
-```shell
-gcloud auth application-default login
-```
-
-Run the pipeline using the Beam runner.
-
-```shell
-./gradlew run --args="\
---sempHostname=${MY_SEMP_HOSTNAME} \
---jcsmpHostname=${MY_JCSMP_HOSTNAME} \
---username=${MY_SOLACE_USERNAME} \
---password=${MY_SOLACE_PASSWORD} \
---vpnName=${MY_VPN_NAME} \
---queueName=${MY_SOLACE_QUEUE_NAME} \
---secOpsProject=${MY_GSECOPS_BYOP_GCP_PROJECT} \
---secOpsLocation=${MY_GSECOPS_LOCATION} \
---secOpsCustomerID=${MY_GSECOPS_CUSTOMER_ID} \
---secOpsForwarderID=${MY_GSECOPS_FORWARDER_ID} \
---secOpsLogType=${MY_GSECOPS_LOG_TYPE}"
-```
-
-## Deploying to Dataflow
-
-### Documentation
-
-https://cloud.google.com/dataflow/docs/quickstarts/create-pipeline-java
-
-### create a Google Cloud environment
-
-1. environmental variables
-2. enable APIs at the project level
-3. create a service account to run the pipeline
-4. create a Google Cloud Storage bucket
-
-#### 1. environment variables
+## Environment variables
 
 See here for valid dataflow locations
 https://cloud.google.com/dataflow/docs/resources/locations
@@ -111,6 +73,52 @@ export GSECOPS_CUSTOMER_ID=${MY_GSECOPS_CUSTOMER_ID}
 export GSECOPS_FORWARDER_ID=${MY_GSECOPS_FORWARDER_ID}
 export GSECOPS_LOG_TYPE=${MY_GSECOPS_LOG_TYPE}
 ```
+
+## Local development with Beam runner
+
+Create local authentication credentials for your user account.
+
+```shell
+gcloud auth application-default login
+```
+
+Run the pipeline using the Beam runner.
+
+```shell
+gradle run --args="\
+--serviceAccount=${SERVICE_ACCT_FULL} \
+--project=${GCP_PROJECT_ID} \
+--region=${GCP_DATAFLOW_REGION} \
+--tempLocation=${GCS_BUCKET_TMP} \
+--sempHostname=${SEMP_HOSTNAME} \
+--jcsmpHostname=${JCSMP_HOSTNAME} \
+--username=${SOLACE_USERNAME} \
+--password=${SOLACE_PASSWORD} \
+--vpnName=${VPN_NAME} \
+--queueName=${SOLACE_QUEUE_NAME} \
+--secOpsProject=${GSECOPS_BYOP_GCP_PROJECT} \
+--secOpsLocation=${GSECOPS_LOCATION} \
+--secOpsCustomerID=${GSECOPS_CUSTOMER_ID} \
+--secOpsForwarderID=${GSECOPS_FORWARDER_ID} \
+--secOpsLogType=${GSECOPS_LOG_TYPE}"
+```
+
+
+
+## Deploying to Dataflow
+
+### Documentation
+
+https://cloud.google.com/dataflow/docs/quickstarts/create-pipeline-java
+
+### create a Google Cloud environment
+
+1. environmental variables
+2. enable APIs at the project level
+3. create a service account to run the pipeline
+4. create a Google Cloud Storage bucket
+
+
 
 #### 2. enable APIs at the project level
 ```shell
