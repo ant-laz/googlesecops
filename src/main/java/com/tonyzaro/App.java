@@ -275,15 +275,19 @@ public class App {
 
   // ---------   DoFn ------------------------------------------------------------------------------
   static class ChronicleAPIRequest extends DoFn<LogsImportRequest, String> {
-    private final Counter count200 = Metrics.counter(
+    private final Counter httpSuccessCount = Metrics.counter(
         "chronicleAPI",
-        "http200count");
-    private final Counter countHTTPError = Metrics.counter(
+        "httpSuccessCount");
+    private final Counter httpErrorCount = Metrics.counter(
         "chronicleAPI",
-        "httpErrorcount");
-    private final Distribution distNumlogs = Metrics.distribution(
+        "httpErrorCount");
+    private final Distribution numLogsPerAPICall = Metrics.distribution(
         "chronicleAPI",
         "numLogsPerAPICall");
+
+    private final Counter numApiRequests = Metrics.counter(
+        "chronicleAPI",
+        "numApiRequests");
 
 
     private final String secOpsProject;
@@ -328,18 +332,17 @@ public class App {
       out.output(String.valueOf(postResponse.statusCode()));
 
       //metric collection
-      distNumlogs.update(msg.getInlineSource().getLogsCount()); //How many logs batch into this req?
+      numApiRequests.inc(); //How many requests have we made ?
+      numLogsPerAPICall.update(msg.getInlineSource().getLogsCount()); //How many logs per request?
       if(postResponse.statusCode() == 200){
-        count200.inc();
+        httpSuccessCount.inc();
       } else {
-        countHTTPError.inc();
+        httpErrorCount.inc();
+        //debug
+        LOG.info("Sent the following JSON to Chronicle API");
+        LOG.info(JsonFormat.printer().print(msg));
+        LOG.info("Received HTTP status code = " + postResponse.statusCode());
       }
-
-      //debug
-      // LOG.info("Sent the following JSON to Chronicle API");
-      // LOG.info(JsonFormat.printer().print(msg));
-      // LOG.info("Received HTTP status code = " + postResponse.statusCode());
-
 
     }
   }
