@@ -48,6 +48,9 @@ import org.apache.beam.sdk.io.solace.broker.BasicAuthJcsmpSessionServiceFactory;
 import org.apache.beam.sdk.io.solace.broker.BasicAuthSempClientFactory;
 import org.apache.beam.sdk.io.solace.data.Solace;
 import org.apache.beam.sdk.io.solace.data.Solace.Queue;
+import org.apache.beam.sdk.metrics.Counter;
+import org.apache.beam.sdk.metrics.Distribution;
+import org.apache.beam.sdk.metrics.Metrics;
 import org.apache.beam.sdk.options.Default;
 import org.apache.beam.sdk.options.Description;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
@@ -272,6 +275,16 @@ public class App {
 
   // ---------   DoFn ------------------------------------------------------------------------------
   static class ChronicleAPIRequest extends DoFn<LogsImportRequest, String> {
+    private final Counter count200 = Metrics.counter(
+        "chronicleAPI",
+        "http200count");
+    private final Counter countHTTPError = Metrics.counter(
+        "chronicleAPI",
+        "httpErrorcount");
+    private final Distribution distNumlogs = Metrics.distribution(
+        "chronicleAPI",
+        "numLogsPerAPICall");
+
 
     private final String secOpsProject;
     private final String secOpsLocation;
@@ -313,10 +326,20 @@ public class App {
       HttpResponse<String> postResponse = httpClient.send(postRequest, BodyHandlers.ofString());
 
       out.output(String.valueOf(postResponse.statusCode()));
+
+      //metric collection
+      distNumlogs.update(msg.getInlineSource().getLogsCount()); //How many logs batch into this req?
+      if(postResponse.statusCode() == 200){
+        count200.inc();
+      } else {
+        countHTTPError.inc();
+      }
+
       //debug
-      LOG.info("Sent the following JSON to Chronicle API");
-      LOG.info(JsonFormat.printer().print(msg));
-      LOG.info("Received HTTP status code = " + postResponse.statusCode());
+      // LOG.info("Sent the following JSON to Chronicle API");
+      // LOG.info(JsonFormat.printer().print(msg));
+      // LOG.info("Received HTTP status code = " + postResponse.statusCode());
+
 
     }
   }
